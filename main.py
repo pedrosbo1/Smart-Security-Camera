@@ -1,3 +1,5 @@
+from socket import *
+import time
 import cv2
 import sys
 from mail import sendEmail
@@ -7,7 +9,13 @@ from flask_basicauth import BasicAuth
 import time
 import threading
 
-email_update_interval = 600 # sends an email only once in this time interval
+#configuration server
+serverName = '192.168.15.15'
+serverPort = 12000
+clientSocket = socket(AF_INET, SOCK_STREAM)
+clientSocket.connect((serverName,serverPort))
+
+email_update_interval = 1 # sends an email only once in this time interval
 video_camera = VideoCamera(flip=True) # creates a camera object, flip vertically
 object_classifier = cv2.CascadeClassifier("models/facial_recognition_model.xml") # an opencv classifier
 
@@ -20,6 +28,22 @@ app.config['BASIC_AUTH_FORCE'] = True
 basic_auth = BasicAuth(app)
 last_epoch = 0
 
+def Send_by_socket(bytesLidos):
+    print "entrou"
+    #bytesLidos = image.read() #le os bytes
+    print "2"
+    tamanhoArquivo = len(bytesLidos) #calcula o numero de bytes
+    print "3"
+    clientSocket.send(str(tamanhoArquivo).encode()) #envia o tamanho do arquivo
+    print "4"
+    resposta = clientSocket.recv(1024) #recebe uma resposta
+    print ('From Server:', resposta.decode())
+    clientSocket.send(bytesLidos) #envia os bytes lidos
+    print('enviei arquivo')
+    resposta = clientSocket.recv(1024) #recebe uma resposta apos o envio de arquivo
+    print ('From Server:', resposta.decode()) 
+    #clientSocket.close()
+
 def check_for_objects():
 	global last_epoch
 	while True:
@@ -29,7 +53,8 @@ def check_for_objects():
 			if found_obj and (time.time() - last_epoch) > email_update_interval:
 				last_epoch = time.time()
 				print "Sending email..."
-				sendEmail(frame)
+				#sendEmail(frame)
+				Send_by_socket(frame)
 				print "done!"
 		except:
 			print "Error sending email: ", sys.exc_info()[0]
@@ -57,3 +82,6 @@ if __name__ == '__main__':
     t.daemon = True
     t.start()
     app.run(host='0.0.0.0', debug=False)
+    
+
+
